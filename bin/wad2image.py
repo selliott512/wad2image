@@ -23,6 +23,7 @@ from __future__ import print_function
 # Imports
 
 import argparse
+import bisect
 import filecmp
 import glob
 import math
@@ -38,6 +39,7 @@ import sys
 args          = {}    # Command line arguments.
 iwad          = {}    # Main IWAD file.
 created_paths = set() # Paths created by this program, which are images.
+frames        = []    # All frames in alphabetical order.
 last_scale    = None  # Scale of the last map drawn.
 lt_prec       = []    # Precedence of line types.
 lt_to_color   = {}    # From the line type (secret, etc) to color and bang.
@@ -511,6 +513,7 @@ def find_file(context, spath, patterns, required):
 
 # Open the IWAD file.
 def find_open_iwad():
+    global frames
     global iwad
 
     if args.iwad.lower() == "iwad":
@@ -518,7 +521,10 @@ def find_open_iwad():
         fatal("\"%s\" can not be specified for the IWAD." % args.iwad)
 
     iwad = find_open_wad("IWAD", args.iwad, False)
-    if not iwad:
+    if iwad:
+        # Get a list of all frames in order.
+        frames = sorted(iwad.sprites.keys())
+    else:
         warn("No IWAD. Circles may be used to represent things.")
 
 # Find a WAD, open it, and return it.
@@ -592,6 +598,11 @@ def get_circle_color(thing_type):
         tt_to_color[thing_type] = color
     return tt_to_color[thing_type]
 
+# Get the first frame with given prefix (sprite).
+def get_frame(sprite):
+    i = bisect.bisect_left(frames, sprite)
+    return frames[i]
+
 # Return the GIF version of a path.
 def get_gif_path(path):
     last_dot = path.rfind(".")
@@ -614,22 +625,16 @@ def get_thing_image(thing_type, scale):
     elif iwad and thing_type in tt_to_info:
         unscaled_image = None
         sprite = tt_to_info[thing_type][2]
-        # Look for a frame where the subject is simply facing the camera.
-        frames = (sprite,) if len(sprite) == 6 else (sprite + "A0", sprite + "A1",
-                                                     sprite + "A1D1")
-        for frame in frames:
-            if frame in iwad.sprites:
-                unscaled_image = iwad.sprites[frame].to_Image()
-                if not unscaled_image:
-                    continue
-
-                # Index 247 has special meaning to Doom engines. It's the
-                # transparent color. The color at this index in the palette is
-                # irrelevant. Note that this does not work with older Pillow
-                # (ver 2.2.1 at least). So the images will be solid squares in
-                # that case.
-                unscaled_image.info["transparency"] = 247
-                break
+        # Get the frame for the sprite.
+        frame = get_frame(sprite)
+        unscaled_image = iwad.sprites[frame].to_Image()
+        if unscaled_image:
+            # Index 247 has special meaning to Doom engines. It's the
+            # transparent color. The color at this index in the palette is
+            # irrelevant. Note that this does not work with older Pillow
+            # (ver 2.2.1 at least). So the images will be solid squares in
+            # that case.
+            unscaled_image.info["transparency"] = 247
         tt_to_usi[thing_type] = unscaled_image
     else:
         unscaled_image = None
