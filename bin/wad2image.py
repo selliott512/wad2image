@@ -98,7 +98,7 @@ def create_gifs():
         # Delete the original files, if requested.
         if not args.dup_images == "gif-keep":
             for new_path in new_paths:
-                os.remove(new_path)
+                remove_file(new_path)
                 verbose("Due to GIF %s at \"%s\" removed \"%s\"." % (
                     m, gif_path, new_path))
 
@@ -398,7 +398,7 @@ def draw_map(wad, name, path, image_format):
         # Remove this duplicate image. Also, don't store the index so it's as
         # if it never happened.
         verbose("Discarded map %s identical image \"%s\"" % (name, new_path))
-        os.remove(new_path)
+        remove_file(new_path)
         if index == 2:
             # Undo the rename since we don't need an index suffix yet.
             rename_file(old_path, path)
@@ -974,6 +974,14 @@ def parse_yadex():
 # Like os.path.join, but also normalize it (get rid of "/../" etc.).
 def path_join(path, bname):
     return os.path.normpath(os.path.join(path, bname))
+
+# Remove a path.
+def remove_file(path):
+    if os.path.isfile(path):
+        os.remove(path)
+
+    if path in created_paths:
+        created_paths.remove(path)
 
 # Rename that works on Linux and Windows even if the destination exists.
 def rename_file(old_path, new_path):
