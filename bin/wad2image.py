@@ -449,6 +449,8 @@ def draw_maps():
             image_bname = (name + "." + args.format).lower()
             image_path = path_join(out_dir, image_bname)
             draw_map(wad, name, image_path, args.format)
+    if not len(created_paths):
+        warn("No images were created. Check WADs and matching criteria (-n and -p).")
 
 # Expand variables in a path.
 def expand_path(adir):
@@ -1021,7 +1023,7 @@ def rename_file(old_path, new_path):
 
 # Show the images created, if requested.
 def show_images():
-    if not args.show:
+    if not args.show or not len(created_paths):
         return
 
     cmd = args.show_cmd
