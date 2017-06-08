@@ -523,7 +523,12 @@ def find_open_iwad():
     iwad = find_open_wad("IWAD", args.iwad, False)
     if iwad:
         # Get a list of all frames in order.
-        frames = sorted(iwad.sprites.keys())
+        sprites = iwad.sprites
+        if not sprites or not len(sprites):
+            warn("No sprites in the IWAD. Circles may be used to represent \
+things.")
+        else:
+            frames = sorted(sprites.keys())
     else:
         warn("No IWAD. Circles may be used to represent things.")
 
@@ -600,8 +605,23 @@ def get_circle_color(thing_type):
 
 # Get the first frame with given prefix (sprite).
 def get_frame(sprite):
+    # Exit if the IWAD does not have any sprites.
+    if not len(frames):
+        return None
+
     i = bisect.bisect_left(frames, sprite)
-    return frames[i]
+
+    if i >= len(frames):
+        warn("Sprite \"" + sprite + "\" is after all sprites in the IWAD.")
+        return None
+    frame = frames[i]
+
+    # The first four characters should match since that part is the name.
+    if sprite[:4] != frame[:4]:
+        warn("Sprite \"" + sprite + "\" does not match any sprites in the IWAD.")
+        return None
+
+    return frame
 
 # Return the GIF version of a path.
 def get_gif_path(path):
@@ -627,14 +647,15 @@ def get_thing_image(thing_type, scale):
         sprite = tt_to_info[thing_type][2]
         # Get the frame for the sprite.
         frame = get_frame(sprite)
-        unscaled_image = iwad.sprites[frame].to_Image()
-        if unscaled_image:
-            # Index 247 has special meaning to Doom engines. It's the
-            # transparent color. The color at this index in the palette is
-            # irrelevant. Note that this does not work with older Pillow
-            # (ver 2.2.1 at least). So the images will be solid squares in
-            # that case.
-            unscaled_image.info["transparency"] = 247
+        if frame:
+            unscaled_image = iwad.sprites[frame].to_Image()
+            if unscaled_image:
+                # Index 247 has special meaning to Doom engines. It's the
+                # transparent color. The color at this index in the palette is
+                # irrelevant. Note that this does not work with older Pillow
+                # (ver 2.2.1 at least). So the images will be solid squares in
+                # that case.
+                unscaled_image.info["transparency"] = 247
         tt_to_usi[thing_type] = unscaled_image
     else:
         unscaled_image = None
