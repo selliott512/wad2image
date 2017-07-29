@@ -70,49 +70,52 @@ def add_index(path, index):
         return "%s-%d" % (path, index)
     else:
         return "%s-%d%s" % (path[:last_dot], index, path[last_dot:])
-    
+
 # Create a colored image where each revision has it's own color. The revision
 # colors are used where there are image differences.
 def create_color_image(path, images):
     icount = len(images)
     min_width  = min(image.size[0] for image in images)
     min_height  = min(image.size[1] for image in images)
-    
+
     bw_images = [image.convert("L") for image in images]
     bw_pixels = [bw_image.load() for bw_image in bw_images]
-    
+
+    all_on = [True] * icount
+    all_off = [False] * icount
+
     image_out = PIL.Image.new("RGB", (min_width, min_height))
     pixels_out = image_out.load()
-    
+
+    is_bw = True # xxdebug replace with color strategy option.
+    on_color = (255, 255, 255)
+    off_color = (0, 0, 0)
     for x in range(min_width):
         for y in range(min_height):
-            first = True
-            flipped_seen = False # Saw one different than the others.
-            color = [0, 0, 0] # color of the output pixel
-            for inum in range(icount):
-                bw_pixel = bw_pixels[inum][x, y]
-                is_on = bw_pixel >= 30
-                if first:
-                    first_on = is_on
-                    first = False
-                if first_on != is_on:
-                    icolor = diff_colors[inum % len(diff_colors)]
-                    if flipped_seen:
-                        for c in range(3):
-                            color[c] ^= icolor[c]
-                    else:
-                        color = icolor[:]
-                        flipped_seen = True
-            if flipped_seen and not first_on:
-                for c in range(3):
-                    color[c] ^= color[c]
-            if not flipped_seen:
-                color = [255, 255, 255] if first_on else [0, 0, 0]
-            pixels_out[x, y] = tuple(color)
-    
+            ons = [bw_pixels[inum][x, y] >= 30 for inum in range(icount)]
+            if ons == all_on:
+                color = on_color if is_bw else None
+            elif ons == all_off:
+                color = off_color if is_bw else None
+            else:
+                on_seen = False
+                color_array = [0, 0, 0] # color of the output pixel
+                for inum in range(icount):
+                    on = ons[inum]
+                    if on:
+                        icolor = diff_colors[inum % len(diff_colors)]
+                        if on_seen:
+                            for c in range(3):
+                                color_array[c] ^= icolor[c]
+                        else:
+                            color_array = icolor[:]
+                        on_seen = True
+                color = tuple(color_array)
+            pixels_out[x, y] = color
+
     image_out.save(path)
     return path
-    
+
 # Create a multi-frame GIF image to a GIF version of 'path' with 'images' for
 # frames. Return the path of the image created.
 def create_gif_image(path, images):
