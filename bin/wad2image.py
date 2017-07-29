@@ -39,6 +39,7 @@ import sys
 args          = {}    # Command line arguments.
 iwad          = {}    # Main IWAD file.
 created_paths = set() # Paths created by this program, which are images.
+diff_colors   = [[255, 0, 0], [0, 0, 255], [0, 255, 0]]
 frames        = []    # All frames in alphabetical order.
 last_scale    = None  # Scale of the last map drawn.
 lt_prec       = []    # Precedence of line types.
@@ -69,13 +70,69 @@ def add_index(path, index):
         return "%s-%d" % (path, index)
     else:
         return "%s-%d%s" % (path[:last_dot], index, path[last_dot:])
+    
+# Create a colored image where each revision has it's own color. The revision
+# colors are used where there are image differences.
+def create_color_image(path, images):
+    icount = len(images)
+    min_width  = min(image.size[0] for image in images)
+    min_height  = min(image.size[1] for image in images)
+    
+    bw_images = [image.convert("L") for image in images]
+    bw_pixels = [bw_image.load() for bw_image in bw_images]
+    
+    image_out = PIL.Image.new("RGB", (min_width, min_height))
+    pixels_out = image_out.load()
+    
+    for x in range(min_width):
+        for y in range(min_height):
+            first = True
+            flipped_seen = False # Saw one different than the others.
+            color = [0, 0, 0] # color of the output pixel
+            for inum in range(icount):
+                bw_pixel = bw_pixels[inum][x, y]
+                is_on = bw_pixel >= 30
+                if first:
+                    first_on = is_on
+                    first = False
+                if first_on != is_on:
+                    icolor = diff_colors[inum % len(diff_colors)]
+                    if flipped_seen:
+                        for c in range(3):
+                            color[c] ^= icolor[c]
+                    else:
+                        color = icolor[:]
+                        flipped_seen = True
+            if flipped_seen and not first_on:
+                for c in range(3):
+                    color[c] ^= color[c]
+            if not flipped_seen:
+                color = [255, 255, 255] if first_on else [0, 0, 0]
+            pixels_out[x, y] = tuple(color)
+    
+    image_out.save(path)
+    return path
+    
+# Create a multi-frame GIF image to a GIF version of 'path' with 'images' for
+# frames. Return the path of the image created.
+def create_gif_image(path, images):
+    # Note that this does not work with older Pillow (ver 2.2.1 at least). In
+    # that case the GIF created will only have the first frame.
+    gif_path = get_gif_path(path)
+    images[0].save(gif_path, append_images=images[1:],
+        duration=args.gif_duration, loop=args.gif_loop, optimize=True,
+        save_all=True)
+    return gif_path
 
-# Create the GIF files, if need be.
-def create_gifs():
-    # Return if no GIFs are to be created. Note that this does not work with
-    # older Pillow (ver 2.2.1 at least). In that case the GIF created will only
-    # have the first frame.
-    if not args.dup_images.startswith("gif"):
+import time # xxdebug
+
+# If requested create images that illustrate the difference between map reversions.
+def create_diff_images():
+    if args.dup_images.startswith("gif"):
+        create_diff_image = create_gif_image
+    elif args.dup_images.startswith("colors"):
+        create_diff_image = create_color_image
+    else:
         return
 
     # Get a list of maps that have more than one image.
@@ -90,19 +147,20 @@ def create_gifs():
             new_path = add_index(path, i)
             images.append(PIL.Image.open(new_path))
             new_paths.append(new_path)
-        gif_path = get_gif_path(path)
-        images[0].save(gif_path, append_images=images[1:],
-            duration=args.gif_duration, loop=args.gif_loop, optimize=True,
-            save_all=True)
-        created_paths.add(gif_path)
-        verbose("Created GIF %s at \"%s\"." % (m, gif_path))
+        bef = int(round(time.time() * 1000))
+        diff_path = create_diff_image(path, images)
+        aft = int(round(time.time() * 1000))
+        # 740 msecs to beat
+        print("xxdebug image took ", (aft - bef), "msec")
+        created_paths.add(diff_path)
+        verbose("Created diff image %s at \"%s\"." % (m, diff_path))
 
         # Delete the original files, if requested.
         if not args.dup_images == "gif-keep":
             for new_path in new_paths:
                 remove_file(new_path)
-                verbose("Due to GIF %s at \"%s\" removed \"%s\"." % (
-                    m, gif_path, new_path))
+                verbose("Due to diff image %s at \"%s\" removed \"%s\"." % (
+                    m, diff_path, new_path))
 
 # Draw a map and save.
 def draw_map(wad, name, path, image_format):
@@ -744,7 +802,7 @@ def parse_args():
         help="Search path to search for configuration files. Comma separated.")
     parser.add_argument("-d", "--dup-images", default="index",
         help="Strategy for duplicate image files (same map in multiple WADs).",
-        choices=("gif", "gif-keep", "index", "overwrite"))
+        choices=("colors", "colors-keep", "gif", "gif-keep", "index", "overwrite"))
     parser.add_argument("--flip", action="store_true",
         help="Flip the image by mirroring vertexes across the vertical axis.")
     parser.add_argument("-f", "--format", default="PNG",
@@ -1101,5 +1159,5 @@ parse_numbers()
 parse_yadex()
 find_open_iwad()
 draw_maps()
-create_gifs()
+create_diff_images()
 show_images()
