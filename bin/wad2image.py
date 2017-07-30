@@ -83,20 +83,30 @@ def create_color_image(path, images):
 
     all_on = [True] * icount
     all_off = [False] * icount
+    
+    # Local copies for performance.
+    thresh = args.colors_threshold
+    on_color = PIL.ImageColor.getcolor(args.colors_on_color, "RGB")
+    off_color = PIL.ImageColor.getcolor(args.colors_off_color, "RGB")
 
     image_out = PIL.Image.new("RGB", (min_width, min_height))
     pixels_out = image_out.load()
+    
+    is_bw = False
+    if args.colors_images == "first":
+        pixels = images[0].load()
+    elif args.colors_images == "last":
+        pixels = images[-1].load()
+    else:
+        is_bw = True
 
-    is_bw = True # xxdebug replace with color strategy option.
-    on_color = (255, 255, 255)
-    off_color = (0, 0, 0)
     for x in range(min_width):
         for y in range(min_height):
-            ons = [bw_pixels[inum][x, y] >= 30 for inum in range(icount)]
+            ons = [bw_pixels[inum][x, y] >= thresh for inum in range(icount)]
             if ons == all_on:
-                color = on_color if is_bw else None
+                color = on_color if is_bw else pixels[x, y]
             elif ons == all_off:
-                color = off_color if is_bw else None
+                color = off_color if is_bw else pixels[x, y]
             else:
                 on_seen = False
                 color_array = [0, 0, 0] # color of the output pixel
@@ -799,6 +809,15 @@ def parse_args():
         help="Radius of circles in Doom space. 0 to use sprite radius.")
     parser.add_argument("--circle-scale", type=float, default=1.0,
         help="Scale circles this amount.")
+    parser.add_argument("--colors-images", default="index",
+        help="Strategy for the images to generate.",
+        choices=("bw", "first", "last"))
+    parser.add_argument("--colors-on-color", default="white",
+        help="For BW mode the color for pixels that are on.")
+    parser.add_argument("--colors-off-color", default="black",
+        help="For BW mode the color for pixels that are off.")
+    parser.add_argument("--colors-threshold", type=int_range(0, 255), default=30,
+        help="Pixels above this threshold are considered to be on.")
     parser.add_argument("-c", "--conf", default=[], action="append",
         help="Configuration to use.")
     parser.add_argument("--conf-spath", default="{top-dir}/conf,.",
