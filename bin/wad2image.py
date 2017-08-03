@@ -107,7 +107,13 @@ def create_colors_image(path, images):
         iscale = float(len(colors_values) - 1) / (icount - 1)
     else:
         iscale = 1
-    print("xxdebug iscale is ", iscale)
+    if args.verbose:
+        verbose("Colors for color diff images:")
+        for inum in range(icount):
+            cnum = int(iscale * inum + 0.5) % len(colors_values)
+            verbose("    %7s (%3d, %3d, %3d) %s #%d" % (colors_names[cnum],
+                colors_values[cnum][0], colors_values[cnum][1],
+                colors_values[cnum][2], path, (inum + 1)))
 
     image_out = PIL.Image.new("RGB", (min_width, min_height))
     pixels_out = image_out.load()
