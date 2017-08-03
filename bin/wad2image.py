@@ -28,18 +28,25 @@ import filecmp
 import glob
 import math
 import os
-import PIL
+import PIL.Image
+import PIL.ImageColor
+import PIL.ImageDraw
+import PIL.ImageEnhance
 import random
 import re
 import subprocess
 import sys
 
+# from PIL import Image, ImageDraw, ImageOps
+
+
 # Globals
 
 args          = {}    # Command line arguments.
 iwad          = {}    # Main IWAD file.
+colors_names  = []    # Names of colors for colors diff images.
+colors_values = []    # Values of colors for colors diff images.
 created_paths = set() # Paths created by this program, which are images.
-diff_colors   = [[255, 0, 0], [0, 0, 255], [0, 255, 0]]
 frames        = []    # All frames in alphabetical order.
 last_scale    = None  # Scale of the last map drawn.
 lt_prec       = []    # Precedence of line types.
@@ -73,8 +80,12 @@ def add_index(path, index):
 
 # Create a colored image where each revision has it's own color. The revision
 # colors are used where there are image differences.
-def create_color_image(path, images):
+def create_colors_image(path, images):
     icount = len(images)
+    if icount < 2:
+        # This should not happen.
+        fatal("For \"%s\' there is only %d images." % (path, icount))
+
     min_width  = min(image.size[0] for image in images)
     min_height  = min(image.size[1] for image in images)
 
@@ -83,22 +94,31 @@ def create_color_image(path, images):
 
     all_on = [True] * icount
     all_off = [False] * icount
-    
+
     # Local copies for performance.
     thresh = args.colors_threshold
     on_color = PIL.ImageColor.getcolor(args.colors_on_color, "RGB")
     off_color = PIL.ImageColor.getcolor(args.colors_off_color, "RGB")
 
+    # Scale the index into the the colors so that colors are taken throughout
+    # --colors-color-list rather than the first few. This is only done if
+    # there are less images than colors.
+    if icount < len(colors_values):
+        iscale = float(len(colors_values) - 1) / (icount - 1)
+    else:
+        iscale = 1
+    print("xxdebug iscale is ", iscale)
+
     image_out = PIL.Image.new("RGB", (min_width, min_height))
     pixels_out = image_out.load()
-    
+
     is_bw = False
-    if args.colors_images == "first":
-        pixels = images[0].load()
-    elif args.colors_images == "last":
-        pixels = images[-1].load()
-    else:
+    if args.colors_images == "bw":
         is_bw = True
+    else:
+        image = images[0] if args.colors_images == "first" else images[-1]
+        converter = PIL.ImageEnhance.Color(image)
+        pixels = converter.enhance(args.colors_saturation).load()
 
     for x in range(min_width):
         for y in range(min_height):
@@ -113,7 +133,8 @@ def create_color_image(path, images):
                 for inum in range(icount):
                     on = ons[inum]
                     if on:
-                        icolor = diff_colors[inum % len(diff_colors)]
+                        icolor = colors_values[int(iscale * inum + 0.5) %
+                                               len(colors_values)]
                         if on_seen:
                             for c in range(3):
                                 color_array[c] ^= icolor[c]
@@ -144,7 +165,7 @@ def create_diff_images():
     if args.dup_images.startswith("gif"):
         create_diff_image = create_gif_image
     elif args.dup_images.startswith("colors"):
-        create_diff_image = create_color_image
+        create_diff_image = create_colors_image
     else:
         return
 
@@ -809,6 +830,8 @@ def parse_args():
         help="Radius of circles in Doom space. 0 to use sprite radius.")
     parser.add_argument("--circle-scale", type=float, default=1.0,
         help="Scale circles this amount.")
+    parser.add_argument("--colors-color-list", default="red,lime,blue",
+        help="Colors to use for color diff images. Comma separated.")
     parser.add_argument("--colors-images", default="index",
         help="Strategy for the images to generate.",
         choices=("bw", "first", "last"))
@@ -816,6 +839,8 @@ def parse_args():
         help="For BW mode the color for pixels that are on.")
     parser.add_argument("--colors-off-color", default="black",
         help="For BW mode the color for pixels that are off.")
+    parser.add_argument("--colors-saturation", type=float, default=0.4,
+        help="Saturation color images this amount.")
     parser.add_argument("--colors-threshold", type=int_range(0, 255), default=30,
         help="Pixels above this threshold are considered to be on.")
     parser.add_argument("-c", "--conf", default=[], action="append",
@@ -922,8 +947,10 @@ def parse_args():
 
     return args
 
-# Parse the colors specified by --line-colors.
+# Parse the colors specified by --line-colors and --colors-color-list
 def parse_colors():
+    global colors_names
+    global colors_values
     global lt_to_color
 
     lt_order = []
@@ -969,6 +996,10 @@ def parse_colors():
         if not line_type in lt_seen:
             lt_prec.append(line_type)
             lt_seen.add(line_type)
+
+    colors_names = str_split(args.colors_color_list, ",")
+    for c in colors_names:
+        colors_values.append(PIL.ImageColor.getcolor(c, "RGB"))
 
 # Parse a comma separated list of key=value pairs.
 def parse_comma_sep(context, items_str):
@@ -1173,6 +1204,8 @@ def warn(msg):
 
 # Main
 
+
+xxx = PIL.Image.new("RGB", (10, 10))
 init()
 third_party()
 parse_args()
