@@ -111,7 +111,7 @@ def create_colors_image(path, images):
         verbose("Colors for color diff images:")
         for inum in range(icount):
             cnum = int(iscale * inum + 0.5) % len(colors_values)
-            verbose("    %7s (%3d, %3d, %3d) %s #%d" % (colors_names[cnum],
+            verbose("    %7s (#%02x%02x%02x) %s #%d" % (colors_names[cnum],
                 colors_values[cnum][0], colors_values[cnum][1],
                 colors_values[cnum][2], path, (inum + 1)))
 
