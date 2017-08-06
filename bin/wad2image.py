@@ -45,6 +45,7 @@ colors_names  = []    # Names of colors for colors diff images.
 colors_values = []    # Values of colors for colors diff images.
 created_paths = set() # Paths created by this program, which are images.
 frames        = []    # All frames in alphabetical order.
+inter_paths   = set() # Intermediate paths used to produce diff images.
 last_scale    = None  # Scale of the last map drawn.
 lt_prec       = []    # Precedence of line types.
 lt_to_color   = {}    # From the line type (secret, etc) to color and bang.
@@ -201,7 +202,12 @@ def create_diff_images():
         verbose("Created diff image %s at \"%s\"." % (m, diff_path))
 
         # Delete the original files, if requested.
-        if not args.dup_images.endswith("keep"):
+        if args.dup_images.endswith("keep"):
+            for new_path in new_paths:
+                verbose("For diff image %s at \"%s\" keeping \"%s\"." % (
+                    m, diff_path, new_path))
+                inter_paths.add(new_path)
+        else:
             for new_path in new_paths:
                 remove_file(new_path)
                 verbose("Due to diff image %s at \"%s\" removed \"%s\"." % (
@@ -909,6 +915,8 @@ def parse_args():
         help="Show the images created with external command --show-cmd.")
     parser.add_argument("--show-cmd", default="display",
         help="Command used by --show to show images.")
+    parser.add_argument("--show-inter", action="store_true",
+        help="Show intermediate image files.")
     parser.add_argument("--spectre-color", default="grey",
         help="The color of spectres. Names or #RRGGBB.")
     parser.add_argument("-t", "--thickness", type=int_range(1, 100), default=1,
@@ -1160,7 +1168,12 @@ def show_images():
     # Build the full argument list with the images in order.
     full_args = [cmd_path]
     full_args += cmd_args[1:]
-    ipaths = list(created_paths)
+    if args.show_inter:
+        # All image paths that still exist.
+        ipaths = list(created_paths)
+    else:
+        # All image paths except intermediate ones.
+        ipaths = [p for p in created_paths if p not in inter_paths]
     ipaths.sort()
     full_args += ipaths
 
