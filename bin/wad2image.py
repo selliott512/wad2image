@@ -37,9 +37,6 @@ import re
 import subprocess
 import sys
 
-# from PIL import Image, ImageDraw, ImageOps
-
-
 # Globals
 
 args          = {}    # Command line arguments.
@@ -92,6 +89,7 @@ def create_colors_image(path, images):
     bw_images = [image.convert("L") for image in images]
     bw_pixels = [bw_image.load() for bw_image in bw_images]
 
+    # Pixels all on or all off.
     all_on = [True] * icount
     all_off = [False] * icount
 
@@ -120,8 +118,13 @@ def create_colors_image(path, images):
 
     is_bw = False
     if args.colors_images == "bw":
+        # A black *or* white image (no grey) will be produced.
         is_bw = True
     else:
+        # A color image with reduced saturation will be produced. By default
+        # the last image is used as basis to draw colors on. In practice it
+        # does not matter much which image is used since the parts that are
+        # different are overwritten with colors anyway.
         image = images[0] if args.colors_images == "first" else images[-1]
         converter = PIL.ImageEnhance.Color(image)
         pixels = converter.enhance(args.colors_saturation).load()
@@ -130,10 +133,13 @@ def create_colors_image(path, images):
         for y in range(min_height):
             ons = [bw_pixels[inum][x, y] >= thresh for inum in range(icount)]
             if ons == all_on:
+                # All the pixels are off, a common fast case.
                 color = on_color if is_bw else pixels[x, y]
             elif ons == all_off:
+                # All the pixels are on, a common fast case.
                 color = off_color if is_bw else pixels[x, y]
             else:
+                # Some pixels on, some not, a less common slower case.
                 on_seen = False
                 color_array = [0, 0, 0] # color of the output pixel
                 for inum in range(icount):
@@ -143,6 +149,8 @@ def create_colors_image(path, images):
                                                len(colors_values)]
                         if on_seen:
                             for c in range(3):
+                                # If more than one color than xor. It's good
+                                # keep the colors simple for this reason.
                                 color_array[c] ^= icolor[c]
                         else:
                             color_array = icolor[:]
