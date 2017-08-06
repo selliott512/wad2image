@@ -164,8 +164,6 @@ def create_gif_image(path, images):
         save_all=True)
     return gif_path
 
-import time # xxdebug
-
 # If requested create images that illustrate the difference between map reversions.
 def create_diff_images():
     if args.dup_images.startswith("gif"):
@@ -187,11 +185,7 @@ def create_diff_images():
             new_path = add_index(path, i)
             images.append(PIL.Image.open(new_path))
             new_paths.append(new_path)
-        bef = int(round(time.time() * 1000))
         diff_path = create_diff_image(path, images)
-        aft = int(round(time.time() * 1000))
-        # 740 msecs to beat
-        print("xxdebug image took ", (aft - bef), "msec")
         created_paths.add(diff_path)
         verbose("Created diff image %s at \"%s\"." % (m, diff_path))
 
@@ -838,7 +832,7 @@ def parse_args():
         help="Scale circles this amount.")
     parser.add_argument("--colors-color-list", default="red,lime,blue",
         help="Colors to use for color diff images. Comma separated.")
-    parser.add_argument("--colors-images", default="index",
+    parser.add_argument("--colors-images", default="last",
         help="Strategy for the images to generate.",
         choices=("bw", "first", "last"))
     parser.add_argument("--colors-on-color", default="white",
@@ -1210,8 +1204,6 @@ def warn(msg):
 
 # Main
 
-
-xxx = PIL.Image.new("RGB", (10, 10))
 init()
 third_party()
 parse_args()
