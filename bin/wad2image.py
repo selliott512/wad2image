@@ -145,6 +145,9 @@ def create_colors_image(path, images):
                 for inum in range(icount):
                     on = ons[inum]
                     if on:
+                        # The goal of the following is to make sure that the
+                        # colors used are evenly throughout the spectrum of
+                        # colors provided by --colors-color-list.
                         icolor = colors_values[int(iscale * inum + 0.5) %
                                                len(colors_values)]
                         if on_seen:
@@ -153,7 +156,7 @@ def create_colors_image(path, images):
                                 # keep the colors simple for this reason.
                                 color_array[c] ^= icolor[c]
                         else:
-                            color_array = icolor[:]
+                            color_array = list(icolor[:])
                         on_seen = True
                 color = tuple(color_array)
             pixels_out[x, y] = color
@@ -198,7 +201,7 @@ def create_diff_images():
         verbose("Created diff image %s at \"%s\"." % (m, diff_path))
 
         # Delete the original files, if requested.
-        if not args.dup_images == "gif-keep":
+        if not args.dup_images.endswith("keep"):
             for new_path in new_paths:
                 remove_file(new_path)
                 verbose("Due to diff image %s at \"%s\" removed \"%s\"." % (
