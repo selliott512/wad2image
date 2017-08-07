@@ -110,9 +110,10 @@ def create_colors_image(path, images):
         verbose("Colors for color diff images:")
         for inum in range(icount):
             cnum = int(iscale * inum + 0.5) % len(colors_values)
-            verbose("    %7s (#%02x%02x%02x) %s #%d" % (colors_names[cnum],
+            path_index = add_index(path, (inum + 1))
+            verbose("    %7s (#%02x%02x%02x) for \"%s\"" % (colors_names[cnum],
                 colors_values[cnum][0], colors_values[cnum][1],
-                colors_values[cnum][2], path, (inum + 1)))
+                colors_values[cnum][2],path_index))
 
     image_out = PIL.Image.new("RGB", (min_width, min_height))
     pixels_out = image_out.load()
