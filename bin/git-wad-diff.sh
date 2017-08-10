@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wad-diff - Generate a diff image for each WAD file that has changed.
+# git-wad-diff.sh - Generate a diff image for each WAD file that has changed.
 # by Steven Elliott <selliott512@gmail.com>
 #
 # The set of changed WAD files and the changes included in them is driven by
