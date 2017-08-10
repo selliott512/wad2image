@@ -1,16 +1,18 @@
 #!/bin/bash
 
-# git-wad-diff.sh - Generate a diff image for each WAD file that has changed.
+# git-wad-diff.sh - Using GIT generate a diff image for each WAD file that has
+#                   changed.
 # by Steven Elliott <selliott512@gmail.com>
 #
-# The set of changed WAD files and the changes included in them is driven by
-# the optional "commit" argument. The commit argument is similar to commit
-# argument that may be passed to "git diff". Like with "git diff" by default
-# the comparison is from HEAD to the workspace. If a single revision commit
-# argument (no "..") is specified then that becomes the from revision instead
-# of HEAD. If a two revision commit argument (with a "..") is specified then
-# the difference is between those two revisions, making the workspace
-# irrelevant.
+# Generate images depicting the differences in WAD files in a particula
+# directory ($levels_dir). The set of changed WAD files and the changes
+# included in them is driven by the optional "commit" argument. The commit
+# argument is similar to commit argument that may be passed to "git diff". Like
+# with "git diff" by default the comparison is from HEAD to the workspace. If a
+# single revision commit argument (no "..") is specified then that becomes the
+# from revision instead of HEAD. If a two revision commit argument (with a
+# "..") is specified then the difference is between those two revisions, making
+# the workspace irrelevant.
 #
 # The set of WAD files considered can be further reduced by the optional
 # "wad-regex" argument. For example, if a diff would be produced for both map05
@@ -144,11 +146,11 @@ do
 
     # Error handling since the $() stops the "exit 1" in wad_to_image() from
     # actually exiting.
-    if ! from_png=$(wad_to_image "$from_rev" "$wad" "$from_path")
+    if ! from_png=$("$dname"/wad2image -v -d colors "$from_rev" "$wad" "$from_path")
     then
         exit 1
     fi
-    if !   to_png=$(wad_to_image   "$to_rev" "$wad"   "$to_path")
+    if !   to_png=$("$dname"/wad2image -z -d colors   "$to_rev" "$wad"   "$to_path")
     then
         exit 1
     fi
