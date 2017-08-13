@@ -79,7 +79,7 @@ def add_index(path, index):
 
 # Create a colored image where each revision has it's own color. The revision
 # colors are used where there are image differences.
-def create_colors_image(path, images):
+def create_colors_image(name, path, images):
     icount = len(images)
     if icount < 2:
         # This should not happen.
@@ -108,7 +108,7 @@ def create_colors_image(path, images):
     else:
         iscale = 1
     if args.verbose:
-        verbose("Colors for color diff images:")
+        verbose("Color table for " + name + " diff image:")
         for inum in range(icount):
             cnum = int(iscale * inum + 0.5) % len(colors_values)
             path_index = add_index(path, (inum + 1))
@@ -169,7 +169,7 @@ def create_colors_image(path, images):
 
 # Create a multi-frame GIF image to a GIF version of 'path' with 'images' for
 # frames. Return the path of the image created.
-def create_gif_image(path, images):
+def create_gif_image(name, path, images):
     # Note that this does not work with older Pillow (ver 2.2.1 at least). In
     # that case the GIF created will only have the first frame.
     gif_path = get_gif_path(path)
@@ -191,15 +191,15 @@ def create_diff_images():
     maps = [m for m in map_to_ipath.keys() if map_to_ipath[m][0] > 1]
     maps.sort()
 
-    images = []
     for m in maps:
+        images = []
         new_paths = []
         index, path = map_to_ipath[m]
         for i in range(1, index + 1):
             new_path = add_index(path, i)
             images.append(PIL.Image.open(new_path))
             new_paths.append(new_path)
-        diff_path = create_diff_image(path, images)
+        diff_path = create_diff_image(m, path, images)
         created_paths.add(diff_path)
         created_diffs.add(diff_path)
         verbose("Created diff image %s at \"%s\"." % (m, diff_path))
