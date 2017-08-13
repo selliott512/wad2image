@@ -44,6 +44,7 @@ iwad          = {}    # Main IWAD file.
 colors_names  = []    # Names of colors for colors diff images.
 colors_values = []    # Values of colors for colors diff images.
 created_paths = set() # Paths created by this program, which are images.
+created_diffs = set() # Paths created to diffs. Subset of created_paths.
 frames        = []    # All frames in alphabetical order.
 inter_paths   = set() # Intermediate paths used to produce diff images.
 last_scale    = None  # Scale of the last map drawn.
@@ -51,8 +52,8 @@ lt_prec       = []    # Precedence of line types.
 lt_to_color   = {}    # From the line type (secret, etc) to color and bang.
 map_nums      = set() # Map numbers to include.
 map_ranges    = []    # Map numbers ranges to include.
+map_to_ipath  = {}    # From map name to index, path used for saving.
 map_to_size   = {}    # From map name to size, scale, etc. image info.
-map_to_index  = {}    # From map name to index used for saving.
 st_names      = ["normal", "blinks", "2hz", "1hz", "20p_2_hz", "10P", "none_1",
                  "5p", "oscillates", "secret", "closes_30s", "20p_end", "1hz_syn",
                  "2hz_syn", "opens_300s", "none_2", "20p", "flicker"]
@@ -187,19 +188,20 @@ def create_diff_images():
         return
 
     # Get a list of maps that have more than one image.
-    maps = [m for m in map_to_index.keys() if map_to_index[m][0] > 1]
+    maps = [m for m in map_to_ipath.keys() if map_to_ipath[m][0] > 1]
     maps.sort()
 
     images = []
     for m in maps:
         new_paths = []
-        index, path = map_to_index[m]
+        index, path = map_to_ipath[m]
         for i in range(1, index + 1):
             new_path = add_index(path, i)
             images.append(PIL.Image.open(new_path))
             new_paths.append(new_path)
         diff_path = create_diff_image(path, images)
         created_paths.add(diff_path)
+        created_diffs.add(diff_path)
         verbose("Created diff image %s at \"%s\"." % (m, diff_path))
 
         # Delete the original files, if requested.
@@ -482,8 +484,8 @@ def draw_map(wad, name, path, image_format):
     # TODO: Does this help much?
     del draw
 
-    if args.dup_images != "overwrite" and name in map_to_index:
-        index = map_to_index[name][0]
+    if args.dup_images != "overwrite" and name in map_to_ipath:
+        index = map_to_ipath[name][0]
         old_path = add_index(path, index)
         if index == 1:
             # The first file was created without an index, but now it needs
@@ -519,7 +521,7 @@ def draw_map(wad, name, path, image_format):
     else:
         # Store the index to keep track of what was created.
         verbose("Drew map %s to \"%s\"." % (name, new_path))
-        map_to_index[name] = index, path
+        map_to_ipath[name] = index, path
 
     # Keep track of the last scale used.
     last_scale = scale
@@ -559,6 +561,7 @@ def draw_maps():
             image_bname = (name + "." + args.format).lower()
             image_path = path_join(out_dir, image_bname)
             draw_map(wad, name, image_path, args.format)
+
     if not len(created_paths):
         warn("No images were created. Check WADs and matching criteria (-n and -p).")
 
@@ -868,6 +871,8 @@ def parse_args():
     parser.add_argument("-d", "--dup-images", default="index",
         help="Strategy for duplicate image files (same map in multiple WADs).",
         choices=("colors", "colors-keep", "gif", "gif-keep", "index", "overwrite"))
+    parser.add_argument("--diff-only", action="store_true",
+        help="Only generate diff images.")
     parser.add_argument("--flip", action="store_true",
         help="Flip the image by mirroring vertexes across the vertical axis.")
     parser.add_argument("-f", "--format", default="PNG",
@@ -1134,6 +1139,24 @@ def parse_yadex():
 def path_join(path, bname):
     return os.path.normpath(os.path.join(path, bname))
 
+# Remove images that turned out to not be helpful. Currently this is driven by
+# --diff-only.
+def remove_extra_images():
+    if args.diff_only:
+        # Delete images for maps that did not produce a diff.
+        for name, index_path in map_to_ipath.items():
+            index, path = index_path
+            diff_path = get_gif_path(path) if args.dup_images.startswith(
+                "gif") else path
+            if not diff_path in created_diffs:
+                # "path" is the base path without any index added.
+                for i in range(index):
+                    index_path = add_index(path, i)
+                    if os.path.isfile(index_path):
+                        remove_file(index_path)
+                if os.path.isfile(path):
+                    remove_file(path)
+
 # Remove a path.
 def remove_file(path):
     if os.path.isfile(path):
@@ -1238,4 +1261,5 @@ parse_yadex()
 find_open_iwad()
 draw_maps()
 create_diff_images()
+remove_extra_images()
 show_images()
