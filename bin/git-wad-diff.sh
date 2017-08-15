@@ -24,8 +24,8 @@
 dname="${0%/*}"
 bname="${0##*/}"
 tmp_dir="/tmp/$bname.$$"
-top_dir="$dname/.."
-levels_dir="$top_dir/levels"
+top_dir="$dname/../../.."
+levels_dir="levels"
 scripts_dir="$top_dir/scripts"
 wad_images_dir="$top_dir/wad-images"
 
@@ -50,51 +50,49 @@ function get_wad_path()
 
     if [[ $rev == "workspace" ]]
     then
-        echo "$levels_dir/$wad"
+        wad_file="$levels_dir/$wad"
+        if [[ -f $wad_file ]]
+        then
+            echo "$wad_file"
+        fi
     else
         local name="${wad%.wad}"
         local rev_path="$tmp_dir/$name-$rev.wad"
         if ! git -C "$levels_dir" show "$rev:./$wad" > "$rev_path"
         then
+            # TODO: Try do destinguish between errors due to the file not
+            # existing in the requested revision, and git failing for some
+            # other reason.
             echo "Could not get revision $rev for \"$wad\"." 1>&2
-            exit 1
+            return
         fi
         echo "$rev_path"
     fi
 }
 
-# Convert the WAD file to an image.
-function wad_to_image()
-{
-    local rev="$1"
-    local wad="$2"
-    local path="$3"
-
-    local name="${wad%.wad}"
-    local out_name="$name-$rev"
-    if ! "$dname"/wad-to-image "$name" "$wad_images_dir" "$path" "$out_name"
-    then
-        echo "Could not capture image for \"$name\" for WAD at \"$path\"." 1>&2
-        exit 1
-    fi
-    echo "$wad_images_dir/$out_name.png"
-}
-
 # Main
 
-if [[ ($1 == "-h") || ($# -gt 2) ]]
+if [[ ($1 == "-h") || ($# -lt 1) || ($# -gt 3) ]]
 then
-    echo "Usage: $bname [commit [wad-regex]]" 1>&2
+    echo "Usage: $bname do-show [commit [wad-regex]]" 1>&2
     exit 0
 fi
 
-if [[ $# -ge 1 ]]
+if [[ ${1,,} == t* ]]
 then
-    commit="$1"
+    do_show=t
+    show_arg="-s"
+else
+    unset do_show
+    unset show_arg
 fi
 if [[ $# -ge 2 ]]
 then
-    wad_regex="$2"
+    commit="$2"
+fi
+if [[ $# -ge 3 ]]
+then
+    wad_regex="$3"
 else
     # Anything by default.
     wad_regex=".*"
@@ -134,6 +132,7 @@ then
     fi
 fi
 
+unset from_paths to_paths
 for level_wad in $level_wads
 do
     wad="${level_wad##*/}"
@@ -141,30 +140,12 @@ do
 
     from_path=$(get_wad_path $from_rev $wad)
     to_path=$(get_wad_path $to_rev $wad)
-
     echo "Generating diff for \"$wad\" from \"$from_rev\" to \"$to_rev\"."
 
-    # Error handling since the $() stops the "exit 1" in wad_to_image() from
-    # actually exiting.
-    if ! from_png=$("$dname"/wad2image -v -d colors "$from_rev" "$wad" "$from_path")
-    then
-        exit 1
-    fi
-    if !   to_png=$("$dname"/wad2image -z -d colors   "$to_rev" "$wad"   "$to_path")
-    then
-        exit 1
-    fi
-
-    if [[ -n $commit ]]
-    then
-        sep="-"
-    else
-        unset sep
-    fi
-    out_png="$wad_images_dir/$name-diff$sep$commit.png"
-    if ! "$scripts_dir/image-diff" "$from_png" "$to_png" "$out_png"
-    then
-        echo "image-diff failed for \"$out_png\"."
-        exit 1
-    fi
+    # Either $from_path or $to_path being empty is a noop.
+    from_paths="$from_paths $from_path"
+    to_paths="$to_paths $to_path"
 done
+
+echo "Running wad2image in diff-only mode."
+"$dname"/wad2image.py -v $show_arg -d colors --diff-only $from_paths $to_paths
