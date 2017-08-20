@@ -13,11 +13,6 @@
 # from revision instead of HEAD. If a two revision commit argument (with a
 # "..") is specified then the difference is between those two revisions, making
 # the workspace irrelevant.
-#
-# The set of WAD files considered can be further reduced by the optional
-# "wad-regex" argument. For example, if a diff would be produced for both map05
-# and map07 but you only want to see the diff for map05 you could pass "05" for
-# wad-regex.
 
 # Globals
 
@@ -25,7 +20,6 @@ dname="${0%/*}"
 bname="${0##*/}"
 tmp_dir="/tmp/$bname.$$"
 top_dir="$dname/../../.."
-levels_dir="levels"
 scripts_dir="$top_dir/scripts"
 wad_images_dir="$top_dir/wad-images"
 
@@ -70,33 +64,43 @@ function get_wad_path()
     fi
 }
 
+# Parse the commit argument.
+function parse_commit()
+{
+    # Default with no "commit" argument.
+    from_rev="HEAD"
+    to_rev="workspace"
+
+    # It's possible to have a git parse the commit argument with a hook, but it's
+    # easy enough to do so here. This probably misses some advanced usages.
+    if [[ $# -ge 1 ]]
+    then
+        from_rev="$1"
+        if [[ $# -ge 2 ]]
+        then
+            to_rev="$2"
+        fi
+    fi
+}
+
 # Main
 
-if [[ ($1 == "-h") || ($# -lt 1) || ($# -gt 3) ]]
+if [[ ($1 == "-h") || ($# -lt 2) ]]
 then
-    echo "Usage: $bname do-show [commit [wad-regex]]" 1>&2
+    echo "Usage: $bname commit levels-dir [wad2image-opt1 [wad2image-opt2 ...]]" 1>&2
     exit 0
 fi
+commit="$1"
+levels_dir="$2"
+if [[ $commit == . ]]
+then
+    # Either an empty string or "." may be used to indicate no commit.
+    unset commit
+fi
+shift 2
 
-if [[ ${1,,} == t* ]]
-then
-    do_show=t
-    show_arg="-s"
-else
-    unset do_show
-    unset show_arg
-fi
-if [[ $# -ge 2 ]]
-then
-    commit="$2"
-fi
-if [[ $# -ge 3 ]]
-then
-    wad_regex="$3"
-else
-    # Anything by default.
-    wad_regex=".*"
-fi
+# The will set from_rev and to_rev.
+parse_commit ${commit/../ }
 
 if ! mkdir -m 700 "$tmp_dir"
 then
@@ -107,29 +111,11 @@ trap cleanup EXIT
 
 # Assume that the levels are in ../levels relative to this script. $commit is
 # intentionally not quoted 
-level_wads=$(git -C "$levels_dir" diff --name-only $commit . | \
-    grep -iP "$wad_regex")
-
+level_wads=$(git -C "$levels_dir" diff --name-only $commit .)
 if [[ -z $level_wads ]]
 then
     echo "No differences found."
     exit 0
-fi
-
-# Default with no "commit" argument.
-from_rev="HEAD"
-to_rev="workspace"
-
-# It's possible to have a git parse the commit argument with a hook, but it's
-# easy enough to do so here. This probably misses some advanced usages.
-set ${commit/../ } nil # "nil" to avoid a "set" without arguments.
-if [[ $# -ge 2 ]]
-then
-    from_rev="$1"
-    if [[ $# -ge 3 ]]
-    then
-        to_rev="$2"
-    fi
 fi
 
 unset from_paths to_paths
@@ -148,4 +134,4 @@ do
 done
 
 echo "Running wad2image in diff-only mode."
-"$dname"/wad2image.py -v $show_arg -d colors --diff-only $from_paths $to_paths
+"$dname"/wad2image.py -d colors --diff-only "$@" $from_paths $to_paths
