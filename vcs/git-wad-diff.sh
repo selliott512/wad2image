@@ -134,4 +134,4 @@ do
 done
 
 echo "Running wad2image in diff-only mode."
-"$dname"/wad2image.py -d colors --diff-only "$@" $from_paths $to_paths
+"$dname"/../bin/wad2image.py -d colors --diff-only "$@" $from_paths $to_paths
