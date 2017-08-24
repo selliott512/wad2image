@@ -25,7 +25,7 @@ wad-image-clean: wad-image-common
 # Diffing WADs in "levels" using git and show the diff."
 wad-image-diff: wad-image-common
 	@echo "Diffing WADs in \"$(WI_LEVELS)\" using git."
-	scripts/wad2image/vcs/git-wad-diff.sh "$(WI_COMMIT)" "$(WI_LEVELS)" $(WI_ALL_OPTIONS)
+	scripts/wad2image/integration/git-wad-diff.sh "$(WI_COMMIT)" "$(WI_LEVELS)" $(WI_ALL_OPTIONS)
 
 wad-image-help:
 	@echo "Help for wad-image* targets and WI_* variable which can be used to see"
