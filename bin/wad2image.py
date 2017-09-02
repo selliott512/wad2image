@@ -797,7 +797,22 @@ def init():
     global top_dir
 
     # Determine the top level directory of wad2image.
-    top_dir = path_join(os.path.dirname(sys.argv[0]), "..")
+    if "WAD2IMAGE_HOME" in os.environ:
+        top_dir = os.environ["WAD2IMAGE_HOME"]
+    else:
+        # Assume that either this file (sys.argv[0]) or the file that it
+        # ultimately points is under the top level directory.
+        self_path = readlink(sys.argv[0], True)
+        top_dir = path_join(os.path.dirname(self_path), "..")
+
+    # Make sure that top_dir exists.
+    if not os.path.isdir(top_dir):
+        fatal("Top level directory \"" + top_dir + "\" is not a directory.")
+
+    # Make sure that top_dir has an expected subdirectory.
+    if not os.path.isdir(top_dir + "/third-party"):
+        fatal("Top level directory \"" + top_dir + "\" does not contain " +
+              "expected subdirectory \"third-party\".")
 
     # From sector type name to type number.
     for i in range(len(st_names)):
@@ -1139,12 +1154,26 @@ def parse_yadex():
 def path_join(path, bname):
     return os.path.normpath(os.path.join(path, bname))
 
+# Read the link at a path, possibly recursively. If the path is not a link
+# that path is returned unchanged.
+def readlink(path, recur):
+    while os.path.islink(path):
+        path_rel = os.readlink(path)
+        if os.path.isabs(path_rel):
+            path = path_rel
+        else:
+            # For relative links the value read is in the same directory as
+            # the original path.
+            path_parent = os.path.dirname(path)
+            path = path_join(path_parent, path_rel)
+    return path
+
 # Remove images that turned out to not be helpful. Currently this is driven by
 # --diff-only.
 def remove_extra_images():
     if args.diff_only:
         # Delete images for maps that did not produce a diff.
-        for name, index_path in map_to_ipath.items():
+        for name, index_path in map_to_ipath.items():  # @UnusedVariable
             index, path = index_path
             diff_path = get_gif_path(path) if args.dup_images.startswith(
                 "gif") else path
