@@ -805,6 +805,10 @@ def init():
         self_path = readlink(sys.argv[0], True)
         top_dir = path_join(os.path.dirname(self_path), "..")
 
+    # A fully qualified path is probably good in case the something wants to
+    # change the directory.
+    top_dir = os.path.abspath(top_dir)
+
     # Make sure that top_dir exists.
     if not os.path.isdir(top_dir):
         fatal("Top level directory \"" + top_dir + "\" is not a directory.")
@@ -894,6 +898,8 @@ def parse_args():
         help="Image format to create.")
     parser.add_argument("--game", default="doom2",
         help="Game to use when reading Yadex files.")
+    parser.add_argument("--get-top-dir", action="store_true",
+        help="Get the top directory ({top-dir} variable) and exit.")
     parser.add_argument("--gif-duration", type=int_range(0, 10000), default=500,
         help="How long to display each frame.")
     parser.add_argument("--gif-loop", type=int_range(0, 10000), default=0,
@@ -961,6 +967,13 @@ def parse_args():
         help="Search path to search for Yadex files.")
     parser.add_argument("wads", metavar="WAD", nargs="+",
         help="WADs to create images from.")
+
+    # It's possible the caller only wants the home directory. This is a
+    # special case since no WADs are required.
+    for arg in sys.argv[1:]:
+        if arg == "--get-top-dir":
+            print(top_dir)
+            sys.exit(0)
 
     # For each configuration specified prepend the arguments with arguments
     # read from the configuration file. Stop when no new configuration names
